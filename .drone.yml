@@ -1,0 +1,254 @@
+---
+kind: pipeline
+name: announce-start
+
+clone:
+  disable: true
+
+platform:
+  os: linux
+
+steps:
+  - name: announce
+    image: container.solid-build.xyz/drone/plugins/slack:latest
+    settings:
+      webhook:
+        from_secret: ryver_webhook
+      channel: drone
+      icon_url: https://img.icons8.com/office/80/000000/test-partial-passed.png
+      template: >
+        Start building {{repo.name}}/{{build.branch}} (#{{build.number}})
+
+trigger:
+  event:
+  - push
+  - tag
+
+---
+kind: pipeline
+name: linux-amd64
+
+clone:
+  depth: 1
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+  - name: restic-script
+    image: plugins/docker
+    settings:
+      dockerfile: restic-script/Dockerfile
+      context: restic-script
+      registry: container.solid-build.xyz
+      repo: container.solid-build.xyz/kube/restic-script-amd64
+      #cache_from: container.solid-build.xyz/kube/restic-script-amd64
+      purge: false
+      force_tag: true
+      tags:
+      - latest
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+
+  - name: restic-script-schedule
+    image: plugins/docker
+    settings:
+      dockerfile: restic-script-schedule/Dockerfile
+      context: restic-script-schedule
+      registry: container.solid-build.xyz
+      repo: container.solid-build.xyz/kube/restic-script-schedule-amd64
+      #cache_from: container.solid-build.xyz/kube/restic-script-schedule-amd64
+      build_args:
+      - BASEIMAGE=container.solid-build.xyz/kube/restic-script-amd64:latest
+      purge: false
+      force_tag: true
+      tags:
+      - latest
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+
+  - name: restic-postgres
+    image: plugins/docker
+    settings:
+      dockerfile: restic-postgres/Dockerfile
+      context: restic-postgres
+      registry: container.solid-build.xyz
+      repo: container.solid-build.xyz/kube/restic-postgres-amd64
+      #cache_from: container.solid-build.xyz/kube/restic-postgres-amd64
+      purge: false
+      force_tag: true
+      tags:
+      - latest
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+
+trigger:
+  event:
+  - push
+  - tag
+
+---
+kind: pipeline
+name: linux-arm64
+
+clone:
+  depth: 1
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+  - name: restic-script
+    image: plugins/docker
+    settings:
+      dockerfile: restic-script/Dockerfile
+      context: restic-script
+      registry: container.solid-build.xyz
+      repo: container.solid-build.xyz/kube/restic-script-arm64
+      #cache_from: container.solid-build.xyz/kube/restic-script-arm64
+      purge: false
+      force_tag: true
+      tags:
+      - latest
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+
+  - name: restic-script-schedule
+    image: plugins/docker
+    settings:
+      dockerfile: restic-script-schedule/Dockerfile
+      context: restic-script-schedule
+      registry: container.solid-build.xyz
+      repo: container.solid-build.xyz/kube/restic-script-schedule-arm64
+      #cache_from: container.solid-build.xyz/kube/restic-script-schedule-arm64
+      build_args:
+      - BASEIMAGE=container.solid-build.xyz/kube/restic-script-arm64:latest
+      purge: false
+      force_tag: true
+      tags:
+      - latest
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+
+  - name: restic-postgres
+    image: plugins/docker
+    settings:
+      dockerfile: restic-postgres/Dockerfile
+      context: restic-postgres
+      registry: container.solid-build.xyz
+      repo: container.solid-build.xyz/kube/restic-postgres-arm64
+      #cache_from: container.solid-build.xyz/kube/restic-postgres-arm64
+      purge: false
+      force_tag: true
+      tags:
+      - latest
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+
+---
+kind: pipeline
+name: manifest
+
+clone:
+  disable: true
+
+platform:
+  os: linux
+
+steps:
+- name: restic-script
+  image: plugins/manifest
+  settings:
+    target: container.solid-build.xyz/kube/restic-script
+    template: container.solid-build.xyz/kube/restic-script-ARCH
+    tags:
+    - latest
+    platforms:
+    - linux/amd64
+    - linux/arm64
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+
+- name: restic-script-schedule
+  image: plugins/manifest
+  settings:
+    target: container.solid-build.xyz/kube/restic-script-schedule
+    template: container.solid-build.xyz/kube/restic-script-schedule-ARCH
+    tags:
+    - latest
+    platforms:
+    - linux/amd64
+    - linux/arm64
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+
+- name: restic-postgres
+  image: plugins/manifest
+  settings:
+    target: container.solid-build.xyz/kube/restic-postgres
+    template: container.solid-build.xyz/kube/restic-postgres-ARCH
+    tags:
+    - latest
+    platforms:
+    - linux/amd64
+    - linux/arm64
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+
+depends_on:
+- linux-amd64
+- linux-arm64
+
+trigger:
+  event:
+  - push
+  - tag
+
+---
+kind: pipeline
+name: announce-end
+
+clone:
+  disable: true
+
+platform:
+  os: linux
+
+steps:
+  - name: announce
+    image: container.solid-build.xyz/drone/plugins/slack:latest
+    settings:
+      webhook:
+        from_secret: ryver_webhook
+      channel: drone
+      icon_url: https://img.icons8.com/office/80/000000/test-passed.png
+      template: >
+        Finished building {{repo.name}}/{{build.branch}} (#{{build.number}})
+
+depends_on:
+- manifest
+
+trigger:
+  event:
+  - push
+  - tag
