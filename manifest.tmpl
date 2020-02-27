@@ -1,0 +1,15 @@
+image: quay.io/josua-sr/etcd:v3.4.4
+manifests:
+  - image: quay.io/coreos/etcd:v3.4.4
+    platform:
+      architecture: amd64
+      os: linux
+  - image: quay.io/josua-sr/etcd:v3.4.4-arm64
+    platform:
+      architecture: arm64
+      os: linux
+      variant: v8
+  - image: quay.io/coreos/etcd:v3.4.4-ppc64le
+    platform:
+      architecture: ppc64le
+      os: linux

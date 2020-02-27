@@ -1,0 +1,47 @@
+---
+kind: pipeline
+name: linux-arm64
+
+clone:
+  depth: 1
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+  - name: patch
+    image: plugins/docker
+    settings:
+      dockerfile: Dockerfile.arm64
+      registry: quay.io
+      repo: quay.io/josua-sr/etcd
+      tag: v3.4.4-arm64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+---
+kind: pipeline
+name: manifest
+
+clone:
+  depth: 1
+
+platform:
+  os: linux
+
+steps:
+  - name: assemble-multiarch
+    image: plugins/manifest
+    settings:
+      spec: manifest.tmpl
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+depends_on:
+- linux-arm64
+
